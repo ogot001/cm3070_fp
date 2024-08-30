@@ -40,6 +40,10 @@ const router = createBrowserRouter([
       },
     ],
   },
+  {
+    path: "/recordlist",
+    element: <RecordList />, // Record list page
+  },
 ]);
 
 ReactDOM.createRoot(document.getElementById("root")).render(
