@@ -1,27 +1,27 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-const Record = ({ record }) => (
+const Record = ({ record, collectionName }) => (
   <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
     <td className="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0">
-      <Link to={`/edit/${record._id}`} className="block">
+      <Link to={`/${collectionName}/edit/${record._id}`} className="block">
         {record.name}
       </Link>
     </td>
     <td className="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0">
-      <Link to={`/edit/${record._id}`} className="block">
+      <Link to={`/${collectionName}/edit/${record._id}`} className="block">
         {record.position}
       </Link>
     </td>
     <td className="p-4 align-middle [&amp;:has([role=checkbox])]:pr-0">
-      <Link to={`/edit/${record._id}`} className="block">
+      <Link to={`/${collectionName}/edit/${record._id}`} className="block">
         {record.level}
       </Link>
     </td>
   </tr>
 );
 
-export default function RecordList() {
+export default function RecordList({ collectionName }) {
   const [records, setRecords] = useState([]);
   const [searchName, setSearchName] = useState('');
   const [searchPosition, setSearchPosition] = useState('');
@@ -30,7 +30,7 @@ export default function RecordList() {
   // Fetch records from the database
   useEffect(() => {
     async function getRecords() {
-      const response = await fetch('http://localhost:5050/record/');
+      const response = await fetch(`http://localhost:5050/${collectionName}/`);
       if (!response.ok) {
         const message = `An error occurred: ${response.statusText}`;
         console.error(message);
@@ -40,7 +40,7 @@ export default function RecordList() {
       setRecords(records);
     }
     getRecords();
-  }, []);
+  }, [collectionName]);
 
   // Filter records based on search fields
   const filteredRecords = records.filter(record => 
@@ -52,7 +52,7 @@ export default function RecordList() {
   // Render the filtered records
   function recordList() {
     return filteredRecords.map(record => (
-      <Record record={record} key={record._id} />
+      <Record record={record} key={record._id} collectionName={collectionName} />
     ));
   }
 

@@ -7,7 +7,52 @@ import {
 import App from "./App";
 import Record from "./components/Record";
 import RecordList from "./components/RecordList";
+import { collections } from "../../formFields.mjs"; // Adjust the path based on your file structure
 import "./index.css";
+
+// Define a fallback error element
+function NotFound() {
+  return <h2>404: Page Not Found</h2>;
+}
+
+// Generate dynamic routes based on the collections
+const dynamicRoutes = collections.map(({ name }) => {
+  return [
+    {
+      path: `/${name}`,
+      element: <App />,
+      children: [
+        {
+          path: `/${name}`,
+          element: <RecordList collectionName={name} />, // Pass collection name as prop
+        },
+      ],
+    },
+    {
+      path: `/${name}/create`,
+      element: <App />,
+      children: [
+        {
+          path: `/${name}/create`,
+          element: <Record collectionName={name} />, // Pass collection name as prop
+        },
+      ],
+    },
+    {
+      path: `/${name}/edit/:id`,
+      element: <App />,
+      children: [
+        {
+          path: `/${name}/edit/:id`,
+          element: <Record collectionName={name} />, // Pass collection name as prop
+        },
+      ],
+    },
+  ];
+});
+
+// Flatten the nested arrays of routes
+const routes = dynamicRoutes.flat();
 
 const router = createBrowserRouter([
   {
@@ -16,33 +61,14 @@ const router = createBrowserRouter([
     children: [
       {
         path: "/",
-        element: <RecordList />,
+        element: <RecordList collectionName="record" />, // Default route to a specific collection
       },
     ],
   },
+  ...routes,
   {
-    path: "/create",
-    element: <App />,
-    children: [
-      {
-        path: "/create",
-        element: <Record />,
-      },
-    ],
-  },
-  {
-    path: "/edit/:id",
-    element: <App />,
-    children: [
-      {
-        path: "/edit/:id",
-        element: <Record />,
-      },
-    ],
-  },
-  {
-    path: "/recordlist",
-    element: <RecordList />, // Record list page
+    path: "*",
+    element: <NotFound />, // Handle 404 errors
   },
 ]);
 

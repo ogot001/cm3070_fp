@@ -4,7 +4,7 @@ export default function Navbar() {
   return (
     <div>
       <nav className="flex justify-between items-center mb-6">
-        <NavLink to="/">
+        <NavLink to="/records">
           <img alt="MongoDB logo" className="h-10 inline" src="https://raw.githubusercontent.com/mongodb-developer/mern-stack-example/603144e25ba5549159d1962601337652a7bfa253/mern/client/src/assets/mongodb.svg"></img>
         </NavLink>
 
