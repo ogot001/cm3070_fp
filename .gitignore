@@ -22,5 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-*.env
+
+# Ignore all .env files in all folders
+**/.env
+
+# Ignore specific file
 users.mjs
+**/smtpTest.js
