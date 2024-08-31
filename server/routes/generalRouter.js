@@ -6,6 +6,7 @@ import * as Yup from "yup";
 export const createRouter = (collectionName, formFields) => {
   const router = express.Router();
 
+  // Generate Yup validation schema dynamically from formFields
   const generateValidationSchema = (fields) => {
     return fields.reduce((schema, field) => {
       const [label, fieldName, type, compulsory, options] = field;
@@ -33,6 +34,9 @@ export const createRouter = (collectionName, formFields) => {
               .oneOf(options, `Invalid ${label.toLowerCase()}`)
               .required(`${label} is required`);
             break;
+          case "join":
+            schema[fieldName] = Yup.string().required(`${label} is required`);
+            break;
           default:
             break;
         }
@@ -43,11 +47,21 @@ export const createRouter = (collectionName, formFields) => {
 
   const validationSchema = Yup.object().shape(generateValidationSchema(formFields));
 
+  // Helper function to generate document fields from formFields
   const generateDocumentFromFields = (body, fields) => {
     const document = {};
     fields.forEach(([, fieldName, type]) => {
       if (body[fieldName] !== undefined) {
-        document[fieldName] = type === "join" ? new ObjectId(body[fieldName]) : body[fieldName];
+        if (type === "join") {
+          // Only convert to ObjectId if it's a valid 24-character hex string
+          if (ObjectId.isValid(body[fieldName])) {
+            document[fieldName] = new ObjectId(body[fieldName]);
+          } else {
+            throw new Error(`Invalid ObjectId: ${body[fieldName]}`);
+          }
+        } else {
+          document[fieldName] = body[fieldName];
+        }
       }
     });
     return document;
@@ -56,40 +70,51 @@ export const createRouter = (collectionName, formFields) => {
   const generateJoinPipeline = (fields) => {
     return fields
       .filter(([, , type]) => type === "join")
-      .map(([, fieldName, , , foreignCollection]) => ({
-        $lookup: {
-          from: foreignCollection,
-          localField: fieldName,
-          foreignField: "_id",
-          as: fieldName + "Details",
-        }
-      }))
-      .concat(fields.filter(([, , type]) => type === "join").map(([, fieldName]) => ({
-        $unwind: `$${fieldName}Details`
-      })));
+      .map(([, fieldName, , , foreignCollection]) => {
+        const [foreignCollectionName, displayField] = foreignCollection.split(";");
+        return {
+          $lookup: {
+            from: foreignCollectionName,
+            localField: fieldName,
+            foreignField: "_id",
+            as: fieldName + "Details",
+          },
+        };
+      })
+      .concat(
+        fields
+          .filter(([, , type]) => type === "join")
+          .map(([, fieldName]) => ({
+            $unwind: {
+              path: `$${fieldName}Details`,
+              preserveNullAndEmptyArrays: true, // To handle cases where there might not be a related document
+            },
+          }))
+      );
   };
-
+  
+  // Fetch all records with joins
   router.get("/", async (req, res) => {
     try {
-      let collection = db.collection(collectionName);
-      let pipeline = generateJoinPipeline(formFields);
-      let results = await collection.aggregate(pipeline).toArray();
+      const collection = db.collection(collectionName);
+      const pipeline = generateJoinPipeline(formFields);
+      const results = await collection.aggregate(pipeline).toArray();
       res.status(200).send(results);
     } catch (err) {
       console.error(`Error retrieving ${collectionName}:`, err);
       res.status(500).send(`Error retrieving ${collectionName}`);
     }
   });
-
+  
+  // Fetch a single record with joins
   router.get("/:id", async (req, res) => {
     try {
-      let collection = db.collection(collectionName);
-      let pipeline = [
+      const collection = db.collection(collectionName);
+      const pipeline = [
         { $match: { _id: new ObjectId(req.params.id) } },
-        ...generateJoinPipeline(formFields)
+        ...generateJoinPipeline(formFields),
       ];
-      let result = await collection.aggregate(pipeline).toArray();
-
+      const result = await collection.aggregate(pipeline).toArray();
       if (!result || result.length === 0) res.status(404).send("Not found");
       else res.status(200).send(result[0]);
     } catch (err) {
@@ -98,6 +123,7 @@ export const createRouter = (collectionName, formFields) => {
     }
   });
 
+  // Create a new record
   router.post("/", async (req, res) => {
     try {
       await validationSchema.validate(req.body, { abortEarly: false });
@@ -117,6 +143,7 @@ export const createRouter = (collectionName, formFields) => {
     }
   });
 
+  // Update a record by ID
   router.patch("/:id", async (req, res) => {
     try {
       await validationSchema.validate(req.body, { abortEarly: false });
@@ -137,6 +164,7 @@ export const createRouter = (collectionName, formFields) => {
     }
   });
 
+  // Delete a record by ID
   router.delete("/:id", async (req, res) => {
     try {
       const query = { _id: new ObjectId(req.params.id) };

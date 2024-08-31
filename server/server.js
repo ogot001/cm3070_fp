@@ -27,11 +27,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Loop over each collection and create routes dynamically
+// Loop through collections and create routes dynamically
 collections.forEach(collection => {
-  const { name, fields } = collection;
-  const router = createRouter(name, fields);
-  app.use(`/${name}`, router);
+  app.use(`/${collection.name}`, createRouter(collection.name, collection.fields));
 });
 
 app.listen(PORT, () => {

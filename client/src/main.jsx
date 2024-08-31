@@ -16,43 +16,26 @@ function NotFound() {
 }
 
 // Generate dynamic routes based on the collections
-const dynamicRoutes = collections.map(({ name }) => {
-  return [
-    {
-      path: `/${name}`,
-      element: <App />,
-      children: [
-        {
-          path: `/${name}`,
-          element: <RecordList collectionName={name} />, // Pass collection name as prop
-        },
-      ],
-    },
-    {
-      path: `/${name}/create`,
-      element: <App />,
-      children: [
-        {
-          path: `/${name}/create`,
-          element: <Record collectionName={name} />, // Pass collection name as prop
-        },
-      ],
-    },
-    {
-      path: `/${name}/edit/:id`,
-      element: <App />,
-      children: [
-        {
-          path: `/${name}/edit/:id`,
-          element: <Record collectionName={name} />, // Pass collection name as prop
-        },
-      ],
-    },
-  ];
-});
-
-// Flatten the nested arrays of routes
-const routes = dynamicRoutes.flat();
+const dynamicRoutes = collections.flatMap(({ name }) => [
+  {
+    path: `/${name}`,
+    element: <App />,
+    children: [
+      {
+        path: `/${name}`,
+        element: <RecordList collectionName={name} />, // Pass collection name as prop
+      },
+      {
+        path: `/${name}/create`,
+        element: <Record collectionName={name} />, // Pass collection name as prop
+      },
+      {
+        path: `/${name}/edit/:id`,
+        element: <Record collectionName={name} />, // Pass collection name as prop
+      },
+    ],
+  }
+]);
 
 const router = createBrowserRouter([
   {
@@ -65,7 +48,7 @@ const router = createBrowserRouter([
       },
     ],
   },
-  ...routes,
+  ...dynamicRoutes,
   {
     path: "*",
     element: <NotFound />, // Handle 404 errors
