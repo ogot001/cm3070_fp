@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import * as Yup from "yup";
 import { useFormik } from "formik";
-import formFields from '../../../formFields'; // Adjust the path based on your file structure
+import formFields from '../../../formFields.mjs'; // Adjust the path based on your file structure
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 
