@@ -9,7 +9,6 @@ const Record = ({ record, collectionName }) => {
 
   return (
     <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-      {/* Map through the fields specified in search_fields for this collection */}
       {collection.search_fields.map((field) => {
         // Find the field configuration for each search field
         const fieldInfo = collection.fields.find(f => f[1] === field);
@@ -29,7 +28,6 @@ const Record = ({ record, collectionName }) => {
 
         return (
           <td key={field} className="p-4 align-middle">
-            {/* Link the row to the edit page for the specific record */}
             <Link to={`/${collectionName}/edit/${record._id}`} className="block">
               {fieldValue}
             </Link>
@@ -51,17 +49,29 @@ export default function RecordList({ collectionName }) {
   // Fetch records from the server when the component mounts or collectionName changes
   useEffect(() => {
     async function getRecords() {
-      const response = await fetch(`http://localhost:5050/${collectionName}/`);
+      const token = localStorage.getItem('token'); // Retrieve the JWT token from localStorage
+  
+      const response = await fetch(`http://localhost:5050/${collectionName}/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`, // Include the Authorization header with the token
+          'Content-Type': 'application/json',
+        },
+      });
+  
       if (!response.ok) {
         const message = `An error occurred: ${response.statusText}`;
         console.error(message);
         return;
       }
+      
       const records = await response.json();
+      console.log("Fetched records:", records); // Add this line to log the records
       setRecords(records); // Set the fetched records to state
     }
     getRecords();
   }, [collectionName]);
+  
 
   // Filter records based on the search criteria entered by the user
   const filteredRecords = records.filter((record) =>
@@ -72,12 +82,12 @@ export default function RecordList({ collectionName }) {
       let fieldValue;
 
       if (isJoin) {
-        // Get the related field value from the joined data or use the original field
         const [joinCollection, joinField] = fieldInfo[4].split(';');
-        fieldValue = record[`${field}Details`]?.[joinField] || record[field];
+        fieldValue = record[`${field}Details`] && record[`${field}Details`][joinField]
+          ? record[`${field}Details`][joinField]
+          : "N/A"; // Fallback if join data is missing
       } else {
-        // For non-join fields, use the field value directly from the record
-        fieldValue = record[field];
+        fieldValue = record[field] || "N/A"; // Fallback if the field is missing
       }
 
       // Filter records where the field value includes the search criteria
@@ -132,24 +142,24 @@ export default function RecordList({ collectionName }) {
         <div className="relative w-full overflow-auto">
           <table className="w-full caption-bottom text-sm">
             <thead className="[&amp;_tr]:border-b">
-            <tr className="border-b">
-              {/* Render the search inputs inline with the corresponding columns */}
-              {searchFields.map((field) => {
-                const fieldInfo = collection.fields.find(f => f[1] === field);
-                const label = fieldInfo ? fieldInfo[0] : field;
-                return (
-                  <th key={field} className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
-                    <input
-                      type="text"
-                      placeholder={`Search ${label}`} // Use the label for the placeholder
-                      value={searchCriteria[field] || ''}
-                      onChange={(e) => handleSearchChange(field, e.target.value)}
-                      className="w-full border rounded p-2"
-                    />
-                  </th>
-                );
-              })}
-            </tr>
+              <tr className="border-b">
+                {/* Render the search inputs inline with the corresponding columns */}
+                {searchFields.map((field) => {
+                  const fieldInfo = collection.fields.find(f => f[1] === field);
+                  const label = fieldInfo ? fieldInfo[0] : field;
+                  return (
+                    <th key={field} className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
+                      <input
+                        type="text"
+                        placeholder={`Search ${label}`} // Use the label for the placeholder
+                        value={searchCriteria[field] || ''}
+                        onChange={(e) => handleSearchChange(field, e.target.value)}
+                        className="w-full border rounded p-2"
+                      />
+                    </th>
+                  );
+                })}
+              </tr>
               <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                 {/* Render table headers using the labels from formFields.mjs */}
                 {searchFields.map((field) => {

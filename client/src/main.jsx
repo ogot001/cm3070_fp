@@ -7,6 +7,7 @@ import {
 import App from "./App";
 import Record from "./components/Record";
 import RecordList from "./components/RecordList";
+import Login from "./components/Login";
 import { collections } from "../../formFields.mjs"; // Adjust the path based on your file structure
 import "./index.css";
 
@@ -14,6 +15,9 @@ import "./index.css";
 function NotFound() {
   return <h2>404: Page Not Found</h2>;
 }
+
+// Determine the first collection name
+const firstCollectionName = collections.length > 0 ? collections[0].name : null;
 
 // Generate dynamic routes based on the collections
 const dynamicRoutes = collections.flatMap(({ name }) => [
@@ -43,12 +47,16 @@ const router = createBrowserRouter([
     element: <App />,
     children: [
       {
-        path: "/",
-        element: <RecordList collectionName="record" />, // Default route to a specific collection
+        path: "/", // Default to the first collection if available
+        element: firstCollectionName ? <RecordList collectionName={firstCollectionName} /> : <NotFound />,
       },
     ],
   },
-  ...dynamicRoutes,
+  ...dynamicRoutes, // Dynamic routes for collections
+  {
+    path: "/login",
+    element: <Login onLogin={() => window.location.replace(`/${firstCollectionName}`)} />, // Redirect to first collection after login
+  },
   {
     path: "*",
     element: <NotFound />, // Handle 404 errors

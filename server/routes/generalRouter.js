@@ -47,14 +47,16 @@ export const createRouter = (collectionName, formFields) => {
 
   const validationSchema = Yup.object().shape(generateValidationSchema(formFields));
 
-  // Helper function to generate document fields from formFields
   const generateDocumentFromFields = (body, fields) => {
     const document = {};
     fields.forEach(([, fieldName, type]) => {
       if (body[fieldName] !== undefined) {
         if (type === "join") {
-          // Only convert to ObjectId if it's a valid 24-character hex string
-          if (ObjectId.isValid(body[fieldName])) {
+          if (body[fieldName] === '' || body[fieldName] === null) {
+            // Set to null or keep it undefined if not modified
+            document[fieldName] = null;
+          } else if (ObjectId.isValid(body[fieldName])) {
+            // Only convert to ObjectId if it's a valid 24-character hex string
             document[fieldName] = new ObjectId(body[fieldName]);
           } else {
             throw new Error(`Invalid ObjectId: ${body[fieldName]}`);
@@ -66,7 +68,8 @@ export const createRouter = (collectionName, formFields) => {
     });
     return document;
   };
-
+  
+  
   const generateJoinPipeline = (fields) => {
     return fields
       .filter(([, , type]) => type === "join")

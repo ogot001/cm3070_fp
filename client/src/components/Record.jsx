@@ -27,11 +27,18 @@ export default function Record({ collectionName }) {
   useEffect(() => {
     async function fetchRelatedData() {
       try {
+        const token = localStorage.getItem('token'); // Retrieve the JWT token from localStorage
         const fetchPromises = formFields
           .filter(field => field[2] === "join") // Filter fields that require joins
           .map(async ([, , , , joinInfo]) => {
             const [foreignCollection, displayField] = joinInfo.split(';');
-            const response = await fetch(`http://localhost:5050/${foreignCollection}`);
+            const response = await fetch(`http://localhost:5050/${foreignCollection}`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`, // Include the Authorization header with the token
+                'Content-Type': 'application/json',
+              },
+            });
             if (!response.ok) {
               throw new Error(`An error occurred: ${response.statusText}`);
             }
@@ -59,7 +66,14 @@ export default function Record({ collectionName }) {
       setIsNew(false);
       setIsEditing(false); // Disable editing initially when fetching data
       try {
-        const response = await fetch(`http://localhost:5050/${collectionName}/${id}`);
+        const token = localStorage.getItem('token'); // Retrieve the JWT token from localStorage
+        const response = await fetch(`http://localhost:5050/${collectionName}/${id}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`, // Include the Authorization header with the token
+            'Content-Type': 'application/json',
+          },
+        });
         if (!response.ok) {
           throw new Error(`An error has occurred: ${response.statusText}`);
         }
@@ -113,7 +127,16 @@ export default function Record({ collectionName }) {
       .required("Mobile Number is required");
   }
 
-  // Initialize formik for form handling
+  const cleanValues = (values) => {
+    const cleanedValues = { ...values };
+    Object.keys(cleanedValues).forEach(key => {
+      if (cleanedValues[key] === '') {
+        cleanedValues[key] = null; // Convert empty strings to null
+      }
+    });
+    return cleanedValues;
+  };
+  
   const formik = useFormik({
     initialValues: formFields.reduce((values, field) => {
       values[field[1]] = "";
@@ -121,28 +144,32 @@ export default function Record({ collectionName }) {
     }, {}),
     validationSchema: validationSchema,
     onSubmit: async (values) => {
-      console.log("Submitted values:", values);
-
+      const cleanedValues = cleanValues(values);
+      console.log("Submitted values:", cleanedValues);
+  
       try {
+        const token = localStorage.getItem('token'); // Retrieve the JWT token from localStorage
         let response;
         if (isNew) {
           response = await fetch(`http://localhost:5050/${collectionName}`, {
             method: "POST",
             headers: {
+              "Authorization": `Bearer ${token}`, // Include the Authorization header with the token
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(values),
+            body: JSON.stringify(cleanedValues),
           });
         } else {
           response = await fetch(`http://localhost:5050/${collectionName}/${params.id}`, {
             method: "PATCH",
             headers: {
+              "Authorization": `Bearer ${token}`, // Include the Authorization header with the token
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(values),
+            body: JSON.stringify(cleanedValues),
           });
         }
-
+  
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -155,6 +182,7 @@ export default function Record({ collectionName }) {
       }
     },
   });
+  
 
   // Toggle editing mode
   const toggleEdit = () => {
@@ -175,8 +203,13 @@ export default function Record({ collectionName }) {
   // Handle deletion of a record
   async function onDelete() {
     try {
+      const token = localStorage.getItem('token'); // Retrieve the JWT token from localStorage
       const response = await fetch(`http://localhost:5050/${collectionName}/${params.id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`, // Include the Authorization header with the token
+          "Content-Type": "application/json",
+        },
       });
   
       if (!response.ok) {
@@ -251,20 +284,21 @@ export default function Record({ collectionName }) {
                           ))}
                         </select>
                       ) : type === "join" ? (
-                        <Select
-                          name={fieldName}
-                          id={fieldName}
-                          options={relatedData[joinInfo[0]] || []} // Populate options for combobox from related data
-                          value={relatedData[joinInfo[0]]?.find(option => option.value === formik.values[fieldName]) || null}
-                          onChange={(selectedOption) => {
-                            formik.setFieldValue(fieldName, selectedOption ? selectedOption.value : '');
-                            console.log(`Updated ${fieldName}:`, selectedOption ? selectedOption.value : '');
-                          }}
-                          onBlur={formik.handleBlur}
-                          isDisabled={!isFieldEditable()}
-                          placeholder={`Select ${label}`}
-                          className="block w-full"
-                        />
+                          <Select
+                            name={fieldName}
+                            id={fieldName}
+                            options={[{ value: '', label: '' }, ...(relatedData[joinInfo[0]] || [])]}
+                            value={relatedData[joinInfo[0]]?.find(option => option.value === formik.values[fieldName]) || { value: '', label: '' }}
+                            onChange={(selectedOption) => {
+                              const valueToSet = selectedOption ? selectedOption.value : '';
+                              formik.setFieldValue(fieldName, valueToSet);
+                              console.log(`Updated ${fieldName}:`, valueToSet);
+                            }}
+                            onBlur={formik.handleBlur}
+                            isDisabled={!isFieldEditable()}
+                            placeholder={`Select ${label}`}
+                            className="block w-full"
+                          />
                       ) : type === "phone" ? (
                         <PhoneInput
                           country={'us'}
