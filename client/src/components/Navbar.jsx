@@ -5,6 +5,7 @@ export default function Navbar() {
 
   const handleLogout = () => {
     localStorage.removeItem("token"); // Remove the JWT token from localStorage
+    localStorage.clear(); // Clear all localStorage data
     navigate("/login"); // Redirect the user to the login page
   };
 

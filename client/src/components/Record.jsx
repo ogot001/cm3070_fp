@@ -6,13 +6,34 @@ import collections from '../../../formFields.mjs'; // Adjust the path based on y
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import Select from "react-select"; // Import react-select for combobox functionality
+import { users } from "../../../users.mjs"; // Adjust the path based on your file structure
 
 export default function Record({ collectionName }) {
-  const [isEditing, setIsEditing] = useState(true); // State to handle editing mode
-  const [isNew, setIsNew] = useState(true); // State to handle whether it's a new record
-  const [relatedData, setRelatedData] = useState({}); // State to store related data from joins
+  // State to handle editing mode
+  const [isEditing, setIsEditing] = useState(true);
+  
+  // State to handle whether it's a new record
+  const [isNew, setIsNew] = useState(true);
+  
+  // State to store related data from joins (for dropdowns or selects)
+  const [relatedData, setRelatedData] = useState({}); 
+  
   const params = useParams();
   const navigate = useNavigate();
+
+  // State to handle user rights based on the logged-in user
+  const [userRights, setUserRights] = useState({ new: false, edit: false, delete: false });
+
+  // useEffect to retrieve user rights from localStorage based on the logged-in user's email
+  useEffect(() => {
+    const userEmail = localStorage.getItem("email");
+    if (userEmail) {
+      const currentUser = users.find(user => user.email === userEmail);
+      if (currentUser) {
+        setUserRights(currentUser.rights);
+      }
+    }
+  }, []);
 
   // Get the collection configuration from formFields.mjs based on the collectionName
   const collection = collections.find(c => c.name === collectionName);
@@ -90,7 +111,7 @@ export default function Record({ collectionName }) {
   // Define validation schema dynamically based on formFields.mjs
   const validationSchema = Yup.object(
     formFields.reduce((schema, field) => {
-      if (field[3]) {
+      if (field[3]) { // Check if the field is compulsory
         switch (field[2]) {
           case "text":
             schema[field[1]] = Yup.string().required(`${field[0]} is required`);
@@ -127,6 +148,7 @@ export default function Record({ collectionName }) {
       .required("Mobile Number is required");
   }
 
+  // Helper function to clean form values before submission
   const cleanValues = (values) => {
     const cleanedValues = { ...values };
     Object.keys(cleanedValues).forEach(key => {
@@ -137,6 +159,7 @@ export default function Record({ collectionName }) {
     return cleanedValues;
   };
   
+  // Setup formik for form handling, including validation and submission
   const formik = useFormik({
     initialValues: formFields.reduce((values, field) => {
       values[field[1]] = "";
@@ -151,6 +174,7 @@ export default function Record({ collectionName }) {
         const token = localStorage.getItem('token'); // Retrieve the JWT token from localStorage
         let response;
         if (isNew) {
+          // Create a new record
           response = await fetch(`http://localhost:5050/${collectionName}`, {
             method: "POST",
             headers: {
@@ -160,6 +184,7 @@ export default function Record({ collectionName }) {
             body: JSON.stringify(cleanedValues),
           });
         } else {
+          // Update an existing record
           response = await fetch(`http://localhost:5050/${collectionName}/${params.id}`, {
             method: "PATCH",
             headers: {
@@ -343,14 +368,16 @@ export default function Record({ collectionName }) {
           </div>
         </div>
         <div className="flex gap-4 mt-4">
-          <button
-            type="button"
-            onClick={handleNew}
-            className="inline-flex items-center justify-center whitespace-nowrap text-md font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-blue-600 bg-blue-600 text-white hover:bg-blue-700 h-9 rounded-md px-3 cursor-pointer"
-          >
-            New
-          </button>
-          {isEditing ? (
+          {userRights.new && (
+            <button
+              type="button"
+              onClick={handleNew}
+              className="inline-flex items-center justify-center whitespace-nowrap text-md font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-blue-600 bg-blue-600 text-white hover:bg-blue-700 h-9 rounded-md px-3 cursor-pointer"
+            >
+              New
+            </button>
+          )}
+          {userRights.edit && isEditing ? (
             <input
               type="submit"
               value="Save"
@@ -361,7 +388,7 @@ export default function Record({ collectionName }) {
               }}
               className="inline-flex items-center justify-center whitespace-nowrap text-md font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-slate-100 hover:text-accent-foreground h-9 rounded-md px-3 cursor-pointer"
             />
-          ) : (
+          ) : userRights.edit && (
             <button
               type="button"
               onClick={toggleEdit}
@@ -370,7 +397,7 @@ export default function Record({ collectionName }) {
               Edit
             </button>
           )}
-          {!isNew && (
+          {userRights.delete && !isNew && (
             <button
               type="button"
               onClick={() => {

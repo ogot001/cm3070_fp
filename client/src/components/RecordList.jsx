@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import collections from '../../../formFields.mjs'; // Adjust the path based on your file structure
+import collections from '../../../formFields.mjs'; // Import the form fields configuration
+import { users } from "../../../users.mjs"; // Import the users configuration
 
-// Component for rendering a single record row
+// Component to render a single record row
 const Record = ({ record, collectionName }) => {
   // Find the collection configuration based on the collection name
   const collection = collections.find(c => c.name === collectionName);
@@ -12,17 +13,15 @@ const Record = ({ record, collectionName }) => {
       {collection.search_fields.map((field) => {
         // Find the field configuration for each search field
         const fieldInfo = collection.fields.find(f => f[1] === field);
-        // Determine if this field is a join field (linked to another collection)
-        const isJoin = fieldInfo && fieldInfo[2] === "join";
+        const isJoin = fieldInfo && fieldInfo[2] === "join"; // Check if the field is a join field
         let fieldValue;
 
         if (isJoin) {
-          // If it's a join field, split the join configuration to get the collection and display field
+          // If it's a join field, retrieve the joined data
           const [joinCollection, joinField] = fieldInfo[4].split(';');
-          // Fetch the related field value from the joined data or fall back to the original field
           fieldValue = record[`${field}Details`]?.[joinField] || record[field];
         } else {
-          // For non-join fields, use the field value directly from the record
+          // Otherwise, use the field value directly from the record
           fieldValue = record[field];
         }
 
@@ -41,52 +40,64 @@ const Record = ({ record, collectionName }) => {
 export default function RecordList({ collectionName }) {
   const [records, setRecords] = useState([]); // State to hold the list of records
   const [searchCriteria, setSearchCriteria] = useState({}); // State to hold the search criteria
+  const [userRights, setUserRights] = useState({ new: false, edit: false, delete: false }); // State to hold user rights
 
   // Find the collection configuration based on the collection name
   const collection = collections.find(c => c.name === collectionName);
   const searchFields = collection ? collection.search_fields : [];
 
-  // Fetch records from the server when the component mounts or collectionName changes
   useEffect(() => {
+    // Retrieve user email and token from localStorage
+    const token = localStorage.getItem('token');
+    const userEmail = localStorage.getItem("email");
+
+    if (userEmail) {
+      // Find the current user's rights based on their email
+      const currentUser = users.find(user => user.email === userEmail);
+      if (currentUser) {
+        setUserRights(currentUser.rights); // Set the user's rights in state
+      }
+    }
+
+    // Fetch records from the server when the component mounts or collectionName changes
     async function getRecords() {
-      const token = localStorage.getItem('token'); // Retrieve the JWT token from localStorage
-  
       const response = await fetch(`http://localhost:5050/${collectionName}/`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`, // Include the Authorization header with the token
+          'Authorization': `Bearer ${token}`, // Include the JWT token in the Authorization header
           'Content-Type': 'application/json',
         },
       });
-  
+
       if (!response.ok) {
         const message = `An error occurred: ${response.statusText}`;
         console.error(message);
         return;
       }
       
-      const records = await response.json();
-      console.log("Fetched records:", records); // Add this line to log the records
-      setRecords(records); // Set the fetched records to state
+      const records = await response.json(); // Parse the JSON response
+      console.log("Fetched records:", records); // Log the fetched records
+      setRecords(records); // Update the state with the fetched records
     }
+
     getRecords();
   }, [collectionName]);
-  
 
   // Filter records based on the search criteria entered by the user
   const filteredRecords = records.filter((record) =>
     searchFields.every((field) => {
-      // Check if the field is a join field
       const fieldInfo = collection.fields.find(f => f[1] === field);
-      const isJoin = fieldInfo && fieldInfo[2] === "join";
+      const isJoin = fieldInfo && fieldInfo[2] === "join"; // Check if the field is a join field
       let fieldValue;
 
       if (isJoin) {
+        // Retrieve the joined field value if it is a join field
         const [joinCollection, joinField] = fieldInfo[4].split(';');
         fieldValue = record[`${field}Details`] && record[`${field}Details`][joinField]
           ? record[`${field}Details`][joinField]
           : "N/A"; // Fallback if join data is missing
       } else {
+        // Otherwise, use the field value directly from the record
         fieldValue = record[field] || "N/A"; // Fallback if the field is missing
       }
 
@@ -130,13 +141,15 @@ export default function RecordList({ collectionName }) {
         </Link>
       </div>
       <div className="p-4">
-        {/* Link to create a new record */}
-        <Link
-          to={`/${collectionName}/create`}
-          className="text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-md"
-        >
-          New
-        </Link>
+        {/* Conditionally render the "New" button based on user rights */}
+        {userRights.new && (
+          <Link
+            to={`/${collectionName}/create`}
+            className="text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-md"
+          >
+            New
+          </Link>
+        )}
       </div>
       <div className="border rounded-lg overflow-hidden">
         <div className="relative w-full overflow-auto">

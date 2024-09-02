@@ -1,12 +1,13 @@
-import express from "express";
-import { ObjectId } from "mongodb";
-import db from "../db/connection.js";
-import * as Yup from "yup";
+import express from "express"; // Import the express framework
+import { ObjectId } from "mongodb"; // Import ObjectId for MongoDB operations
+import db from "../db/connection.js"; // Import database connection
+import * as Yup from "yup"; // Import Yup for validation
 
+// Function to create an Express router for a specific collection
 export const createRouter = (collectionName, formFields) => {
-  const router = express.Router();
+  const router = express.Router(); // Create a new router instance
 
-  // Generate Yup validation schema dynamically from formFields
+  // Function to generate Yup validation schema dynamically based on formFields
   const generateValidationSchema = (fields) => {
     return fields.reduce((schema, field) => {
       const [label, fieldName, type, compulsory, options] = field;
@@ -45,18 +46,18 @@ export const createRouter = (collectionName, formFields) => {
     }, {});
   };
 
+  // Generate the validation schema for the collection
   const validationSchema = Yup.object().shape(generateValidationSchema(formFields));
 
+  // Function to generate a document object from request body based on formFields
   const generateDocumentFromFields = (body, fields) => {
     const document = {};
     fields.forEach(([, fieldName, type]) => {
       if (body[fieldName] !== undefined) {
         if (type === "join") {
           if (body[fieldName] === '' || body[fieldName] === null) {
-            // Set to null or keep it undefined if not modified
             document[fieldName] = null;
           } else if (ObjectId.isValid(body[fieldName])) {
-            // Only convert to ObjectId if it's a valid 24-character hex string
             document[fieldName] = new ObjectId(body[fieldName]);
           } else {
             throw new Error(`Invalid ObjectId: ${body[fieldName]}`);
@@ -68,8 +69,8 @@ export const createRouter = (collectionName, formFields) => {
     });
     return document;
   };
-  
-  
+
+  // Function to generate the MongoDB aggregation pipeline for join fields
   const generateJoinPipeline = (fields) => {
     return fields
       .filter(([, , type]) => type === "join")
@@ -90,97 +91,97 @@ export const createRouter = (collectionName, formFields) => {
           .map(([, fieldName]) => ({
             $unwind: {
               path: `$${fieldName}Details`,
-              preserveNullAndEmptyArrays: true, // To handle cases where there might not be a related document
+              preserveNullAndEmptyArrays: true, // Handle cases where there might not be a related document
             },
           }))
       );
   };
-  
-  // Fetch all records with joins
+
+  // Route to fetch all records with join details
   router.get("/", async (req, res) => {
     try {
       const collection = db.collection(collectionName);
-      const pipeline = generateJoinPipeline(formFields);
-      const results = await collection.aggregate(pipeline).toArray();
-      res.status(200).send(results);
+      const pipeline = generateJoinPipeline(formFields); // Generate the aggregation pipeline
+      const results = await collection.aggregate(pipeline).toArray(); // Execute the aggregation query
+      res.status(200).send(results); // Send the results back to the client
     } catch (err) {
       console.error(`Error retrieving ${collectionName}:`, err);
       res.status(500).send(`Error retrieving ${collectionName}`);
     }
   });
-  
-  // Fetch a single record with joins
+
+  // Route to fetch a single record by ID with join details
   router.get("/:id", async (req, res) => {
     try {
       const collection = db.collection(collectionName);
       const pipeline = [
-        { $match: { _id: new ObjectId(req.params.id) } },
-        ...generateJoinPipeline(formFields),
+        { $match: { _id: new ObjectId(req.params.id) } }, // Match the record by ID
+        ...generateJoinPipeline(formFields), // Add the join pipeline
       ];
-      const result = await collection.aggregate(pipeline).toArray();
+      const result = await collection.aggregate(pipeline).toArray(); // Execute the aggregation query
       if (!result || result.length === 0) res.status(404).send("Not found");
-      else res.status(200).send(result[0]);
+      else res.status(200).send(result[0]); // Send the first result back to the client
     } catch (err) {
       console.error(`Error retrieving ${collectionName}:`, err);
       res.status(500).send(`Error retrieving ${collectionName}`);
     }
   });
 
-  // Create a new record
+  // Route to create a new record
   router.post("/", async (req, res) => {
     try {
-      await validationSchema.validate(req.body, { abortEarly: false });
+      await validationSchema.validate(req.body, { abortEarly: false }); // Validate the request body
 
-      const newDocument = generateDocumentFromFields(req.body, formFields);
+      const newDocument = generateDocumentFromFields(req.body, formFields); // Generate the document to insert
 
       let collection = await db.collection(collectionName);
-      let result = await collection.insertOne(newDocument);
-      res.status(201).send(result);
+      let result = await collection.insertOne(newDocument); // Insert the document into the collection
+      res.status(201).send(result); // Send the result back to the client
     } catch (err) {
       console.error(`Error adding to ${collectionName}:`, err);
       if (err.name === 'ValidationError') {
-        res.status(400).send({ errors: err.errors });
+        res.status(400).send({ errors: err.errors }); // Send validation errors back to the client
       } else {
         res.status(500).send(`Error adding to ${collectionName}`);
       }
     }
   });
 
-  // Update a record by ID
+  // Route to update a record by ID
   router.patch("/:id", async (req, res) => {
     try {
-      await validationSchema.validate(req.body, { abortEarly: false });
+      await validationSchema.validate(req.body, { abortEarly: false }); // Validate the request body
 
-      const query = { _id: new ObjectId(req.params.id) };
-      const updates = { $set: generateDocumentFromFields(req.body, formFields) };
+      const query = { _id: new ObjectId(req.params.id) }; // Find the record by ID
+      const updates = { $set: generateDocumentFromFields(req.body, formFields) }; // Prepare the updates
 
       let collection = await db.collection(collectionName);
-      let result = await collection.updateOne(query, updates);
-      res.status(200).send(result);
+      let result = await collection.updateOne(query, updates); // Update the record
+      res.status(200).send(result); // Send the result back to the client
     } catch (err) {
       console.error(`Error updating ${collectionName}:`, err);
       if (err.name === 'ValidationError') {
-        res.status(400).send({ errors: err.errors });
+        res.status(400).send({ errors: err.errors }); // Send validation errors back to the client
       } else {
         res.status(500).send(`Error updating ${collectionName}`);
       }
     }
   });
 
-  // Delete a record by ID
+  // Route to delete a record by ID
   router.delete("/:id", async (req, res) => {
     try {
-      const query = { _id: new ObjectId(req.params.id) };
+      const query = { _id: new ObjectId(req.params.id) }; // Find the record by ID
 
       const collection = db.collection(collectionName);
-      let result = await collection.deleteOne(query);
+      let result = await collection.deleteOne(query); // Delete the record
 
-      res.status(200).send(result);
+      res.status(200).send(result); // Send the result back to the client
     } catch (err) {
       console.error(`Error deleting from ${collectionName}:`, err);
       res.status(500).send(`Error deleting from ${collectionName}`);
     }
   });
 
-  return router;
+  return router; // Return the configured router
 };
